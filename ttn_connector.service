@@ -1,0 +1,13 @@
+[Unit]
+Description=TTN conenctor service
+After=network.target
+StartLimitIntervalSec=0
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User=admin
+ExecStart=/usr/bin/python /opt/ttn_connector/ttn_connector.py
+
+[Install]
+WantedBy=multi-user.target
