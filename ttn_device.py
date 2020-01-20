@@ -29,13 +29,7 @@ class TTNDevice():
             "pendingDataResponseT": 0,  # When the next data response is awaited
             "pendingMeasurementT": 0,  # When the next measurement is awaited
             "execOnAck": None,  # Can hold a function to be exectured on next ack
-            "lastMeasurement": {
-                "deviceTime": 0,  # UNIX timestamp of devices time
-                "deviceVoltage": 0,  # The current voltage of the devices power supply
-                "water": 0,  # Reading of the water sensor
-                "humidity": 0,  # The measured humidity
-                "temperature": 0  # The measured temperature
-            }
+            "lastMeasurement": {}
         }
 
         return
@@ -46,7 +40,7 @@ class TTNDevice():
             self.context.log.debug("[DEV:%s] ping received" % self.deviceID)
 
     # To be called on every iteration in the main loop (see ttn_connector.py)
-    def tick(self, noTimesync=True, noCheckBat=True):
+    def tick(self, noTimesync=True):
         if not noTimesync:
             self.__check_timesync()
 
@@ -54,9 +48,6 @@ class TTNDevice():
         self.__check_data_response_timed_out()
         self.__check_measurement_timed_out()
         self.__check_registration_upp()
-
-        if not noCheckBat:
-            self.__check_running_on_battery()
 
     # Functions to get values from the local stats object #
     # Return statistics
@@ -89,21 +80,20 @@ class TTNDevice():
 
     # Functions to set values in the local stats object #
     # Set the last received measurements + pendingMeasurementT will be reset
-    def setMeasurement(self, time, voltage, water, humidity, temperature):
+    def setMeasurement(self, measurements):
         self.context.log.info("[DEV:%s] measurements received" % self.deviceID)
 
-        # convert mV into V
-        voltage /= 1000
+        for i in range(0, len(self.context.config["DataConfig"]["dataLayout"])):
+            if i >= len(measurements):
+                break
 
-        if self.context.config["OPConfig"]["showMeasurements"]:
-            self.context.log.info("[DEV:%s]\n    Time: %d\n    Voltage: %f\n    Water: %d\n    Humidity: %f\n    Temperature: %f"
-            % (self.deviceID, time, voltage, water, humidity, temperature))
+            if self.context.config["OPConfig"]["showMeasurements"]:
+                self.context.log.info(self.context.config["DataConfig"]["dataLayout"][i] + ": " + str(measurements[i]))
 
-        self.stats["lastMeasurement"]["deviceTime"] = time
-        self.stats["lastMeasurement"]["deviceVoltage"] = voltage
-        self.stats["lastMeasurement"]["waterDetected"] = water
-        self.stats["lastMeasurement"]["humidity"] = humidity
-        self.stats["lastMeasurement"]["temperature"] = temperature
+            self.stats["lastMeasurement"].update({
+                self.context.config["DataConfig"]["dataLayout"][i]: measurements[i]
+            })
+
         self.stats["pendingMeasurementT"] = 0
         self.stats["measurementsSinceTimesync"] += 1
         self.stats["totalMeasurements"] += 1
@@ -175,46 +165,18 @@ class TTNDevice():
 
         return
 
-    # Functions to check values in the local stats object and decide what to do #
-    # Check if the device time has to be synced
-    def __check_running_on_battery(self):
-        if self.stats["totalMeasurements"] > 0:
-            if self.stats["lastMeasurement"]["deviceVoltage"]\
-                    <= self.context.config["TTNDeviceConfig"]["runningOnBatteryTriggerVoltage"]:
-                # The device is running on battery, log a warning message
-                # First, check if it is time to log a warning message for the battery
-                if self.stats["lastBatteryWarningT"] == 0\
-                    or time.time() - self.stats["lastBatteryWarningT"] >=\
-                        self.context.config["OPConfig"]["tickPeriod"] * self.context.config["TTNDeviceConfig"]["batteryWarningFreqTicks"]:
-                    # Print the message
-                    self.context.log.warning("[DEV:%s] device is running on battery (%f V)"
-                                             % (self.deviceID, self.stats["lastMeasurement"]["deviceVoltage"]))
-
-                    # Update last battery warn time
-                    self.stats["lastBatteryWarningT"] = time.time()
-
-                # Set the new status
-                self.stats["runningOnBattery"] = True
-            else:
-                # Check if the device was running on battery - if so, log that it isn't anymore
-                if self.stats["runningOnBattery"]:
-                    self.context.log.warning("[DEV:%s] device is not running on battery anymore (%f V)"
-                                             % (self.deviceID, self.stats["lastMeasurement"]["deviceVoltage"]))
-
-                # Set the new status
-                self.stats["runningOnBattery"] = False
-
     # Check if the devices clock is in sync
     def __check_timesync(self):
-        if self.stats["measurementsSinceTimesync"] > 0:
-            self.context.log.debug("[DEV:%s] checking the current time of the device - %d"
-                                   % (self.deviceID, self.stats["lastMeasurement"]["deviceTime"]))
+        if "time" in self.stats["lastMeasurement"].keys():
+            if self.stats["measurementsSinceTimesync"] > 0:
+                self.context.log.debug("[DEV:%s] checking the current time of the device - %d"
+                                    % (self.deviceID, self.stats["lastMeasurement"]["time"]))
 
-            # Check by how much the sensors time is off
-            if abs(self.stats["lastMeasurement"]["deviceTime"] - time.time())\
-                    > self.context.config["TTNDeviceConfig"]["allowedClockOffset"]:
-                # Time has to be synced
-                self.__timesync()
+                # Check by how much the sensors time is off
+                if abs(self.stats["lastMeasurement"]["time"] - time.time())\
+                        > self.context.config["TTNDeviceConfig"]["allowedClockOffset"]:
+                    # Time has to be synced
+                    self.__timesync()
 
     # Check if the current pending ack has timed out
     def __check_ack_timed_out(self):
@@ -261,7 +223,7 @@ class TTNDevice():
                                 % (self.deviceID, str(self.registration_upp), len(self.registration_upp)))
 
         # send the request
-        r = requests.post((self.config["UbirchHTTPConfig"]["UbirchKEY"] % self.config["UbirchHTTPConfig"]["UbirchENV"]),
+        r = requests.post((self.context.config["UbirchHTTPConfig"]["UbirchKEY"] % self.context.config["UbirchHTTPConfig"]["UbirchENV"]),
                           headers={'Content-Type': 'application/octet-stream'},
                           data=self.registration_upp)
 
@@ -278,7 +240,7 @@ class TTNDevice():
     # Send a timesync message to the device to set its time
     def __timesync(self):
         self.context.log.info("[DEV:%s] the sensors clock is off by %d seconds - synchronizing"
-                              % (self.deviceID, abs(self.stats["lastMeasurement"]["deviceTime"] - time.time())))
+                              % (self.deviceID, abs(self.stats["lastMeasurement"]["time"] - time.time())))
 
         # Create the timesync message
         msg = {}

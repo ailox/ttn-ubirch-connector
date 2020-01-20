@@ -51,7 +51,7 @@ class TTNConnector():
         while True:
             # Make a tick in all device objects
             for deviceObj in self.devices:
-                deviceObj["device"].tick(noTimesync=True, noCheckBat=False)
+                deviceObj["device"].tick(noTimesync=True)
 
             time.sleep(self.config["OPConfig"]["tickPeriod"])
 
@@ -143,10 +143,9 @@ class TTNConnector():
                     #   [5] = UPP Signature
 
                     # Transmit the received measurement to the current device object and tick it
-                    self.getDeviceObjByID(dev_id)["device"].setMeasurement(
-                        unpacked_measurements[4], unpacked_measurements[2], unpacked_measurements[3], unpacked_measurements[0], unpacked_measurements[1])
+                    self.getDeviceObjByID(dev_id)["device"].setMeasurement(unpacked_measurements)
                     time.sleep(0.1)
-                    self.getDeviceObjByID(dev_id)["device"].tick(noTimesync=False, noCheckBat=False)
+                    self.getDeviceObjByID(dev_id)["device"].tick(noTimesync=False)
 
                     # Send it to ubirch
                     if not self.config["OPConfig"]["disableUbirch"]:
@@ -156,17 +155,17 @@ class TTNConnector():
                 # Transmit the ping to the current device and tick it
                 self.getDeviceObjByID(dev_id)["device"].ping()
                 time.sleep(0.1)
-                self.getDeviceObjByID(dev_id)["device"].tick(noTimesync=True, noCheckBat=True)
+                self.getDeviceObjByID(dev_id)["device"].tick(noTimesync=True)
             elif mp_msg_unpacked["MSG_CTRL_B"] == mprotocol.MP_CTRL_B_TYPES["MSG_ACK"]:
                 # Transmit the acknowledge to the current device and tick it
                 self.getDeviceObjByID(dev_id)["device"].setAckReceived()
                 time.sleep(0.1)
-                self.getDeviceObjByID(dev_id)["device"].tick(noTimesync=True, noCheckBat=True)
+                self.getDeviceObjByID(dev_id)["device"].tick(noTimesync=True)
             elif mp_msg_unpacked["MSG_CTRL_B"] == mprotocol.MP_CTRL_B_TYPES["MSG_NACK"]:
                 # Transmit the NOT-acknowledge to the current device and tick it
                 self.getDeviceObjByID(dev_id)["device"].setNackReceived()
                 time.sleep(0.1)
-                self.getDeviceObjByID(dev_id)["device"].tick(noTimesync=True, noCheckBat=True)
+                self.getDeviceObjByID(dev_id)["device"].tick(noTimesync=True)
             elif mp_msg_unpacked["MSG_CTRL_B"] == mprotocol.MP_CTRL_B_TYPES["MSG_CFG_VAL_RESP"]:
                 # Pass the information to the device object and tick it
                 payload = mp_msg_unpacked["MSG_DATA"]
@@ -176,12 +175,12 @@ class TTNConnector():
                 else:
                     self.getDeviceObjByID(dev_id)["device"].setDataResponseReceived(mp_msg_unpacked["MSG_DATA"])
                     time.sleep(0.1)
-                    self.getDeviceObjByID(dev_id)["device"].tick(noTimesync=True, noCheckBat=True)
+                    self.getDeviceObjByID(dev_id)["device"].tick(noTimesync=True)
             elif mp_msg_unpacked["MSG_CTRL_B"] == mprotocol.MP_CTRL_B_TYPES["MSG_REGISTER_KEY_PART"]:
                 # Transmit the part to the device object and tick it
                 self.getDeviceObjByID(dev_id)["device"].setRegistrationPartReceived(mp_msg_unpacked["MSG_DATA"])
                 time.sleep(0.1)
-                self.getDeviceObjByID(dev_id)["device"].tick(noTimesync=True, noCheckBat=True)
+                self.getDeviceObjByID(dev_id)["device"].tick(noTimesync=True)
             else:
                 self.log.warning("[DEV:%s] unhandled MSG_CTRL_B: %d" % (dev_id, mp_msg_unpacked["MSG_CTRL_B"]))
         except Exception as e:
@@ -263,18 +262,26 @@ class TTNConnector():
         # put the UUID from binary into standard str format
         uuidstr = self.uuidbin2str(uuid)
 
+        # create the data object
         data = {
             "uuid": uuidstr,
             "msg_type": 77,
-            "timestamp": datetime.datetime.utcfromtimestamp(measurements[4]).isoformat(),
-            "data": {
-                "voltage": measurements[2],
-                "temperature": measurements[1],
-                "humidity": measurements[0],
-                "water": measurements[3]
-            },
+            "data": {},
             "hash": base64.b64encode(data_struct).decode()
         }
+
+        # put measurements into the data object
+        for i in range(0, len(self.config["DataConfig"]["dataLayout"])):
+            if i >= len(measurements):
+                break
+
+            # the "timestamp" field is a special case
+            if self.config["DataConfig"]["dataLayout"][i] == "time":
+                data["timestamp"] = datetime.datetime.utcfromtimestamp(measurements[i]).isoformat()
+            else:
+                data["data"].update({
+                    self.config["DataConfig"]["dataLayout"][i]: measurements[i]
+                })
 
         print(data)
 
