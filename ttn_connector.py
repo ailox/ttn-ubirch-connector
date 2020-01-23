@@ -193,7 +193,7 @@ class TTNConnector():
                 return None
 
             # Replace measurement data struct with the unpacked measurements
-            return struct.unpack("fffii", bytes(unpacked_upp[4]))
+            return struct.unpack(self.config["DataConfig"]["structFormat"], bytes(unpacked_upp[4]))
         except Exception as e:
             self.log.error("Received invalid UPP: %s" % str(list(unpacked_upp)))
             self.log.exception(e)
