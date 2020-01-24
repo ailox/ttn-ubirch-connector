@@ -1,3 +1,4 @@
 ttn
 requests
 msgpack
+json_logging
