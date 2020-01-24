@@ -73,7 +73,7 @@ class TTNConnector():
         json_logging.init_non_web()
 
         # Create a logger
-        log = logging.getLogger("log")
+        log = logging.getLogger("mainlog")
         log.setLevel(level)
 
         # Install a file handler
