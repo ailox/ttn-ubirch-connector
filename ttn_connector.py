@@ -6,6 +6,7 @@ import json
 import struct
 import msgpack
 import logging
+import json_logging
 import base64
 import mprotocol
 import ttn_device
@@ -13,6 +14,9 @@ import mqtt_connection
 
 CONFIGFILE = "config.json"
 
+# disbale insecure connection warning
+# TODO remove when requests modules is fixed
+requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
 class TTNConnector():
     def __init__(self):
@@ -65,12 +69,12 @@ class TTNConnector():
 
     # Sets up the logger
     def setupLog(self, logfile, level, format):
-        # Create a logger
-        log = logging.getLogger("")
-        log.setLevel(level)
+        json_logging.ENABLE_JSON_LOGGING = self.config["LogConfig"]["enableJSON"]
+        json_logging.init_non_web()
 
-        # Create a format
-        fmt = logging.Formatter(format)
+        # Create a logger
+        log = logging.getLogger("log")
+        log.setLevel(level)
 
         # Install a file handler
         try:
@@ -80,14 +84,13 @@ class TTNConnector():
             raise(e)
 
         fh.setLevel(level)
-        fh.setFormatter(fmt)
-        log.addHandler(fh)
 
-        # Install a console handler
-        ch = logging.StreamHandler()
-        ch.setLevel(level)
-        ch.setFormatter(fmt)
-        log.addHandler(ch)
+        if self.config["LogConfig"]["enableJSON"] == False:
+            # Create a format
+            fmt = logging.Formatter(format)
+            fh.setFormatter(fmt)
+
+        log.addHandler(fh)
 
         return log
 
@@ -135,11 +138,6 @@ class TTNConnector():
                     #   [2] = Previous UPP signature
                     #   [3] = UPP Type
                     #   [4] = UPP Payload
-                    #   [4][0] = Humidity
-                    #   [4][1] = Temperature
-                    #   [4][2] = Voltage
-                    #   [4][3] = water
-                    #   [4][4] = UNIX time
                     #   [5] = UPP Signature
 
                     # Transmit the received measurement to the current device object and tick it
