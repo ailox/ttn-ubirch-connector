@@ -81,18 +81,18 @@ class TTNDevice():
     # Functions to set values in the local stats object #
     # Set the last received measurements + pendingMeasurementT will be reset
     def setMeasurement(self, measurements):
-        self.context.log.info("[DEV:%s] measurements received" % self.deviceID)
-
         for i in range(0, len(self.context.config["DataConfig"]["dataLayout"])):
             if i >= len(measurements):
                 break
 
-            if self.context.config["OPConfig"]["showMeasurements"]:
                 self.context.log.info(self.context.config["DataConfig"]["dataLayout"][i] + ": " + str(measurements[i]))
 
             self.stats["lastMeasurement"].update({
                 self.context.config["DataConfig"]["dataLayout"][i]: measurements[i]
             })
+
+        if self.context.config["OPConfig"]["showMeasurements"]:
+            self.context.log.info("[DEV:%s] measurements received: %s" % (self.deviceID, str(self.stats["lastMeasurement"])))
 
         self.stats["pendingMeasurementT"] = 0
         self.stats["measurementsSinceTimesync"] += 1
