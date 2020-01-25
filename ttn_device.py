@@ -21,8 +21,6 @@ class TTNDevice():
             # Number of measurements received since last timesync
             "totalMeasurements": 0,
             "measurementsSinceTimesync": 0,
-            "runningOnBattery": False,  # if the device runs on battery
-            "lastBatteryWarningT": 0,
             "uplinksReceived": 0,  # how many messages the device sent
             "downlinksSent": 0,  # how many messages were sent to the device
             "pendingAckT": 0,  # When an acknowledge is awaited
@@ -69,10 +67,6 @@ class TTNDevice():
     # Return the value of pendingMeasurementT
     def get_measurement_pending_t(self):
         return self.stats["pendingMeasurementT"]
-
-    # Retrun the value of runningOnBattery
-    def get_running_on_battery(self):
-        return self.stats["runningOnBattery"]
 
     # Get the allowed delay of an awaited message (based on inCMDMode)
     def __get_allowed_delay(self):
