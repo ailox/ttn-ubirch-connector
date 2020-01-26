@@ -27,23 +27,23 @@ class TTNConnector():
                                  self.config["LogConfig"]["logFormat"])
         self.devices = []
 
-        self.log.info("Initialising ...")
+        self.log.info("initialising ...")
 
         # Check config for logfile and disableUbirch and disableDatabase + init db
         if self.config["LogConfig"]["logFile"] == "/dev/null":
-            self.log.warning("Logging to /dev/null - effectively not logging!")
+            self.log.warning("logging to /dev/null - effectively not logging!")
 
         if self.config["OPConfig"]["disableUbirch"]:
             self.log.warning("Not verifying any data with Ubirch!")
 
         # Set up MQTT connection
         while True:
-            self.log.info("Setting up MQTT connection to TTN ...")
+            self.log.info("setting up MQTT connection to TTN ...")
             self.mqtt = mqtt_connection.MQTTConnection(self)
 
             if self.mqtt.connection_failed:
                 # Retry every five sconds
-                self.log.error("Setting up MQTT connection failed!")
+                self.log.error("setting up MQTT connection failed!")
                 time.sleep(5)
             else:
                 break
@@ -193,7 +193,7 @@ class TTNConnector():
             # Replace measurement data struct with the unpacked measurements
             return struct.unpack(self.config["DataConfig"]["structFormat"], bytes(unpacked_upp[4]))
         except Exception as e:
-            self.log.error("Received invalid UPP: %s" % str(list(unpacked_upp)))
+            self.log.error("received invalid UPP: %s" % str(list(unpacked_upp)))
             self.log.exception(e)
 
     def uuidbin2str(self, uuidbin):
@@ -221,7 +221,7 @@ class TTNConnector():
 
         uuidstr = self.uuidbin2str(uuid)
 
-        self.log.debug("verifying payload via post-request with UBIRCH")
+        self.log.debug("verifying payload with UBirch")
 
         while True:
             try:
@@ -283,7 +283,7 @@ class TTNConnector():
 
         print(data)
 
-        self.log.info("sending data to ubirch")
+        self.log.info("sending data to UBirch")
 
         while True:
             try:
