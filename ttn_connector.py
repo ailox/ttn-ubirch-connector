@@ -11,8 +11,9 @@ import base64
 import mprotocol
 import ttn_device
 import mqtt_connection
+from os import getenv
 
-CONFIGFILE = "config.json"
+CONFIGFILE = getenv("CONNECTOR_CONFIG_PATH", "config.json")
 
 # disbale insecure connection warning
 # TODO remove when requests modules is fixed
